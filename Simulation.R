@@ -8,10 +8,10 @@ library(tidyverse)
 theme_set(theme_bw())
 
 #read in life tables
-lt <- readRDS("C:/Users/micbo262/Documents/WPPData/WPP2022_Life_Table_Abridged_Medium_Both_ExcludingSingleCountries") 
+lt <- readRDS("WPP2022_Life_Table_Abridged_Medium_Both_ExcludingSingleCountries") 
 
 #read in fertility table
-ft <- readRDS("C:/Users/micbo262/Documents/WPPData/WPP2022_Fertility_by_Age5_Medium_ExcludingSingleCountries") 
+ft <- readRDS("WPP2022_Fertility_by_Age5_Medium_ExcludingSingleCountries") 
 
 #mortality probability matrix
 m <- lt %>% 
