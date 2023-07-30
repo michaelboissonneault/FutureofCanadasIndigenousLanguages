@@ -1,4 +1,17 @@
-#1. Preparation#################################################################
+################################################################################
+#IN THIS DO-FILE
+#ESTIMATION OF A POPULATION OF SPEAKERS IN A BASELINE YEAR (HERE: 2001)
+#BASED ON DATA COLLECTED AT SUBSEQUENT POINTS (HERE: 2001, 2006, 2011, 2016, 2021)
+#WE THEN PROJECT THIS POPULATION'S SIZE AND STRUCTURE BY AGE IN THE YEAR 2101
+
+#CONTENTS
+#1. PACKAGES & DATA
+#2. THE REAL (UNOBSERVED) POPULATION, 1951-2101
+#3. THE SYNTHETIC (OBSERVED) POPULATION, 2001-2021
+
+################################################################################
+##1. PACKAGES & DATA############################################################
+################################################################################
 rm(list=ls())
 
 #get packages
@@ -7,13 +20,13 @@ library(tidyverse)
 #set theme
 theme_set(theme_bw())
 
-#read in life tables
+#life fertility tables (World Population prospects 2022)
 lt <- readRDS("WPP2022_Life_Table_Abridged_Medium_Both_ExcludingSingleCountries") 
-
-#read in fertility table
 ft <- readRDS("WPP2022_Fertility_by_Age5_Medium_ExcludingSingleCountries") 
 
-#mortality probability matrix
+#(the mortality and fertility of the WPP lower-middle-income group corresponds roughly to that of the Canadian indigenous population)
+
+#mortality probability matrix 
 m <- lt %>% 
   filter(Location=="Lower-middle-income countries", Time %in% seq(1951, 2096, 5), AgeGrpStart!=0) %>%
   mutate(qx = ifelse(AgeGrpStart==1, 1-lx/100000, qx)) %>%
@@ -29,15 +42,16 @@ f <- ft %>%
 #fill the rest of the fertility matrix with zeros
 f <- rbind(matrix(nrow=2, ncol=30, 0), f, matrix(nrow=11, ncol=30, 0))/400
 
-#2. Simulation##################################################################
-#Suppose a population of speakers in the year 1951 who gradually stop transmitting
-#their language to their children so that no children learn it by ~2050
-
+################################################################################
+#2. THE REAL (UNOBSERVED) POPULATION, 1951-2101#################################
+#Suppose a population of speakers in the year 1951 who gradually stop transmitting their language to their children 
+#(No children learn it by ~2050.)
+################################################################################
 #counts in 1951
 N <- list(c(100, 70, rep(50, 10), seq(40, 0, -5)))
           
 #intergenerational transmission ratio, whole period
-itr <- 1 / (1+exp(1)^(.3*(1:30-12)))
+itr <- 1 / (1+exp(1)^(.25*(1:30-10)))
 plot(seq(1951, 2096, 5), itr)
 
 #microsimulation function
@@ -45,28 +59,35 @@ plot(seq(1951, 2096, 5), itr)
 for (t in 1:30){
   
   #remove the dead
-  N[[t]] <- N[[t]] - rbinom(21, N[[t]], m[, t])
+  N[[t+1]] <- N[[t]] - rbinom(21, N[[t]], m[, t])
 
   #add the newborn 
-  N[[t+1]] <- c(sum(rbinom(21, N[[t]], f[, t]*itr[t])), N[[t]][-21])
+  N[[t+1]] <- c(sum(rbinom(21, N[[t+1]], f[, t]*itr[t])), N[[t+1]][-21])
   
   }
 
 #data frame, counts of speakers by year and age
 N_df <- data.frame(year=rep(seq(1951, 2101, 5), each=21), age=seq(0, 100, 5), N=unlist(N))
 
-#pyramids
+#population pyramids, each 5 year period
 ggplot(N_df)+
   geom_col(aes(age, N))+
   coord_flip()+
   facet_wrap(~year)
 
-#3.Model########################################################################
+#population size over time
+ggplot(N_df %>% group_by(year) %>% summarise(sum_N = sum(N)))+
+  geom_line(aes(year, sum_N))+
+  expand_limits(y=0)
+
+################################################################################
+##3. THE SYNTHETIC (OBSERVED) POPULATION, 2001-2021#############################
 #Consider the population above to be the 'true', underlying population
 #We dispose of five censuses (2001, 2006, 2011, 2016, 2021) to estimate its size and structure by age
-#However, speaker detection in the census is prone to error and this error is more important among younger age groups
-
-#Draw 5 random error ratios (log-normal distribution with mean 0)
+#However, speaker detection in the census is prone to error 
+################################################################################
+#Draw 5 random samples from a log-normal distribution with mean 0
+#These are the year-specific deviations from the true (unobserved) population
 census_error <- rlnorm(5, 0, .2)
 
 #The observed counts of speakers in the censuses of 2001...2021 are a result of poisson process * age-specific census error
