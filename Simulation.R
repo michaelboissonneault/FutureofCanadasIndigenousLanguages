@@ -263,4 +263,3 @@ forecast_yr2101 %>%
   summarise(sum = sum(value)) %>% 
   pivot_wider(values_from = sum, names_from = valuetype) %>% 
   select(lower, q2, upper, observed)
-
