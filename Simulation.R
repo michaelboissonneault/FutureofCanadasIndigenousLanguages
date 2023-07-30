@@ -87,7 +87,7 @@ ggplot(N_df %>% group_by(year) %>% summarise(sum_N = sum(N)))+
 #However, speaker detection in the census is prone to error 
 #We measure the extent of the detection error between censuses and include it in our calculations
 #But first, we need to adjust the speaker numbers by age to account for the effect of mortality over time
-#For this, we estimate five populations in the year 2001 based on each census counts
+#For this, we estimate for the year 1996 five populations based on each census counts 
 ################################################################################
 #Draw 5 random samples from a log-normal distribution with mean 0
 #These are the year-specific deviations from the true (unobserved) population
@@ -96,168 +96,73 @@ census_error <- rlnorm(5, 0, .2)
 #The observed counts of speakers in the censuses of 2001...2021 are a result of poisson process * age-specific census error
 n <- lapply(1:5, function(i) rpois(21, census_error[[i]] * N[[10+i]]))
  
+#data frame with observed and underlying counts
+N_n_df <- N_df %>% filter(year>=2001, year<=2021) %>% left_join(
+  data.frame(n = unlist(n), age = seq(0, 100, 5), year = rep(seq(2001, 2021, 5), each = 21))
+) %>% rename(real = N, synthetic = n) %>%
+  pivot_longer(c(real, synthetic), values_to = "Value", names_to = "Counts")
+
+#plot
+ggplot(N_n_df)+
+  geom_line(aes(age, Value, group= Counts, color = Counts))+
+  facet_wrap(~year)+
+  coord_flip()
+
 #Estimation##################################################################### 
-#We use the 5 census snap-shots to estimate a single "real" count in the year 2001
+#We use the 5 census snap-shots to estimate a single "real" count in the year 1996
 #This requires backcasting,
-#i.e. applying mortality probabilities retrospectively to the counts in the years 2006...2021 
+#i.e. applying mortality probabilities retrospectively to the counts in the years 2001...2021 
 #to obtain counts that are free of the influence of mortality 
 #(e.g. populations of older speakers will be smaller in later years, over and beyond the influence of census error, 
 # because some of their speakers will have died in the intervening time)
 
 #Backcast function
-n01_fct <- function(i, r){
+n01_fct <- function(i){
   
-  #estimate counts from poisson process
-  p <- list(rpois(21, n[[i+1]]))
+  p <- list(n[[i+1]])
   
   #backcast loop
   for (t in 1:i){
     
-    p[[t+1]] <- c((p[[t]] + rbinom(1:length(p[[t]]), p[[t]], m[,c((10+i):11)[t]]))[-1], 0)
+    p[[t+1]] <- c((p[[t]] + p[[t]] * m[,c((10+i):11)[t]])[-1], 0)
     
   }
   
-  data.frame(run = r, 
-             census = seq(2006, 2021, 5)[i],
+  data.frame(census = seq(2006, 2021, 5)[i],
              year = rep(seq(seq(2006, 2021, 5)[i], 2001, -5), each=21),
              age = seq(0, 100, 5),
              n = unlist(p))
   }
 
-#run function
-n01 <- bind_rows(lapply(1:4, function(x) lapply(1:100, function(y) n01_fct(x, y))))
-
-#find the median for the population in 2001 estimated from the censuses of 2006...2021
-n01_median <- n01 %>% filter(year==2001) %>% group_by(census, age) %>% summarise(n = quantile(n, .5))
-
-#add year 2001
-n01_median <- n01_median %>% bind_rows(data.frame(census = 2001, age = seq(0, 100, 5), n = n[[1]])) %>% arrange(census, age)
+#run function, add year 2001
+n01 <- bind_rows(lapply(1:4, function(x) n01_fct(x))) %>%
+  filter(year==2001) %>%
+  select(-year) %>%
+  bind_rows(data.frame(n = n[[1]], census = 2001, age = seq(0, 100, 5))) %>%
+  arrange(census, age)
 
 #plot population numbers by age and census
-ggplot(n01_median)+
-  geom_line(aes(age, n, color=as.character(census), group=as.character(census)))
+ggplot(n01)+
+  geom_line(aes(age, n, color=as.character(census), group=as.character(census)))+
+  coord_flip()
 
 #Error across population totals
-observed_error <- n01_median %>% group_by(census) %>% summarise(sum_n = sum(n)) %>% 
+observed_error <- n01 %>% group_by(census) %>% summarise(sum_n = sum(n)) %>% 
   mutate(mean_sum_n = mean(sum_n), ratio_mean_sum = mean_sum_n / sum_n) %>% pull(ratio_mean_sum)
 
 #means by age
 lambda <- n01 %>% 
-  filter(year==2001) %>%
   group_by(age) %>% 
   summarise(mean = mean(n)) %>%
   pull(mean)
   
-#standard deviation of the different totals
-sd_obs_ratio <- sd(observed_error / mean(observed_error))
+#standard deviation of the errors 
+sd_obs_error <- sd(observed_error) 
 
-#Population in 2001
-pop2001 <- lapply(1:1000, function(x) rpois(1:21, lambda*rnorm(1, 1, sd_obs_ratio)))
-
-#result in data frame
-pop2001_df <- data.frame(run=rep(1:1000, each=21), age=rep(seq(0, 100, 5), 1000), n=unlist(pop2001)) %>% 
-  filter(age<=75)
-
-#sums
-pop2001_sum <- pop2001_df %>% 
-  group_by(run) %>% 
-  summarise(sumpop = sum(n))
-
-#graph
-ggplot(pop2001_sum)+
-  geom_density(aes(sumpop))+
-  geom_point(aes(y = 0, x = sum(N[[11]][1:16])))
-
-#this population does not include people aged above 80 (although they are few)
-#the point is the real population
-#repeat several times to see if the real population falls within given boundaries the corresponding proportion of times
-
-#Intergenerational transmission#################################################
-#Other backcast but until 1996 to estimate the total number of births 
-n96_fct <- function(i, r){
-  
-  #estimate counts from poisson process
-  p <- list(rpois(21, n[[i]]))
-  
-  #backcast loop
-  for (t in 1:i){
-    
-    p[[t+1]] <- c((p[[t]] + rbinom(1:length(p[[t]]), p[[t]], m[,c((9+i):10)[t]]))[-1], 0)
-    
-  }
-  
-  data.frame(run = r, 
-             census = seq(2001, 2021, 5)[i],
-             year = rep(seq(seq(2001, 2021, 5)[i], 1996, -5), each=21),
-             age = seq(0, 100, 5),
-             n = unlist(p))
-  
-}
-
-#run function, put in df
-n96 <- bind_rows(lapply(1:5, function(i) lapply(1:1000, function(r) n96_fct(i, r))))
-
-#totals' dispersion around the mean
-obs_ratio <- n96 %>% 
-  filter(year==2001, age<=70) %>%
-  group_by(census) %>% 
-  summarise(tot = sum(n)/1000) %>%
-  pull(tot)
-
-#standard deviation of totals 
-sd_obs_ratio <- sd(obs_ratio / mean(obs_ratio))
-
-#mean values by age in 1996
-lambda <- n96 %>% 
-  filter(year==1996, age<=70) %>% 
-  group_by(age) %>% 
-  summarise(n = mean(n)) %>% 
-  pull(n)
-
-#Forecast to estimate intergenerational transmission
-# (counterfactual number of births assuming that all children learn the language)
-itforecast_fct <- function(r){
-  
-  #draw random ratio value
-  ratio <- rnorm(1, 1, sd_obs_ratio)
-  
-  #estimate population
-  p <- rpois(1:16, lambda*ratio)
-  
-  #remove the dead
-  p <- p - rbinom(16, p, m[, 10])
-    
-  #find the total number of newborns 
-  counter <- sum(rbinom(16, p, f[, 10]))
-  
-  #find the number of newborns who acquire the language
-  births <- rpois(1, lambda[1]*ratio)
-    
-  #put result in data frame
-  data.frame(run=r, births=births, counter = counter, proportion = births / counter)
-  
-  }
-
-#run function, pivot wider
-int_trans <- bind_rows(lapply(1:1000, function(r) itforecast_fct(r))) %>% 
-  pivot_longer(c(births, counter), values_to = 'value', names_to = 'scenario')
-
-#plot
-ggplot(int_trans)+
-  geom_density(aes(value, group=scenario, fill=scenario), alpha = .3)
-
-#table with counts
-int_trans %>% 
-  group_by(scenario) %>% 
-  summarise(total = quantile(value, .5), lower = quantile(value, .05), upper = quantile(value, .95))
-
-#table with proportions
-data.frame(estimate = c(int_trans %>% 
-  filter(scenario == 'counter') %>%
-  pull(proportion) %>% 
-  quantile(., c(0.05, 0.5, .95))), quantile = c("0.05", "0.50", "0.95"), actual = itr[10]) 
-
-#Intergenerational transmission between 2001 and 2021###########################
+#Function to forecast the population from in each census year t-5 until year t
+#Allows to estimate the probability of intergenerational transmission in the years 2001 to 2021
+#The probability is obtained by dividing the number of children ages 0-4 in the observed data
+#by the number of children that would be observed assuming that all children would learn the language
 it_01_21 <- function(r){
   
   #population in year t
@@ -266,7 +171,7 @@ it_01_21 <- function(r){
   #pop aged 0-4 in t
   b <- lapply(1:5, function(x) p[[x]][1])
   
-  #deaths t-5, t
+  #population in year t + deaths t-5, t
   p <- lapply(1:5, function(x) p[[x]] + p[[x]]*m[,9+x])
   
   #births counter t-5, t
@@ -280,53 +185,37 @@ it_01_21 <- function(r){
   }
 
 #run function to see trend in it
-it_trend <- bind_rows(lapply(1:100, function(x) it_01_21(x)))
+it_trend <- bind_rows(lapply(1:1000, function(x) it_01_21(x)))
 
-#show result
+#show result (red line is real (unobserved) it)
 ggplot(it_trend)+
-  geom_line(aes(census, itr), linewidth = 1.5)+
-  geom_line(aes(census, proportion, group = run), alpha = .3)
+  geom_line(aes(census, itr), linewidth = 2, color = 'red')+
+  geom_line(aes(census, proportion, group = run), alpha = .05)
 
 #for each run, estimate log-linear model
 it_trend_linear <- it_trend %>% group_by(run) %>% do(model = lm(log(proportion) ~ census, data =.))
 
 #extract the predictions until year 2101
-it_predictions <- sapply(1:100, function(x) exp(predict(it_trend_linear$model[[x]], newdata = data.frame(census=seq(2001, 2101, 5)))))
+it_predictions <- sapply(1:1000, function(x) exp(predict(it_trend_linear$model[[x]], newdata = data.frame(census=seq(2001, 2101, 5)))))
 
 #show predictions
 ggplot(data.frame(it_predictions) %>% 
          mutate(year = seq(2001, 2101, 5)) %>% pivot_longer(X1:X100, values_to = 'prediction', names_to = "run") %>% 
          mutate(observed = rep(itr[10:30], each = 100)))+
-  geom_line(aes(year, prediction, group = run), alpha = .2)+
-  geom_line(aes(year, observed), linewidth = 1.5)
+  geom_line(aes(year, prediction, group = run), alpha = .1)+
+  geom_line(aes(year, observed), linewidth = 1.5, color = 'red')
 
 #full forecast##################################################################
 #The full forecast is based on the estimated population in 2001 
 #and the estimated intergenerational transmission ratio
-
-#specify again the parameters for the estimated population
-#Error across population totals
-observed_error <- n01_median %>% group_by(census) %>% summarise(sum_n = sum(n)) %>% 
-  mutate(mean_sum_n = mean(sum_n), ratio_mean_sum = mean_sum_n / sum_n) %>% pull(ratio_mean_sum)
-
-#means by age
-lambda <- n01 %>% 
-  filter(year==2001) %>%
-  group_by(age) %>% 
-  summarise(mean = mean(n)) %>%
-  pull(mean)
-
-#standard deviation of the different totals
-sd_obs_ratio <- sd(observed_error / mean(observed_error))
-
 #full forecast function
 fullforecast_fct <- function(r){
 
   #draw random ratio value
-  ratio <- rnorm(1, 1, sd_obs_ratio)
+  ratio <- rlnorm(1, 0, sd_obs_error)
   
-  #draw random it trajectory value
-  it_traject <- sample(1:100, 1)
+  #draw random number for it trajectory 
+  it_traject <- sample(1:1000, 1)
   
   #Population in 2001
   p <- list(rpois(1:21, lambda*ratio))
@@ -334,11 +223,15 @@ fullforecast_fct <- function(r){
   #Loop through 2101
   for (i in 1:20){
     
+    #specify the value
+    it_value <- it_predictions[1+i, it_traject]
+    it_value <- ifelse(it_value>1, 1, it_value)
+    
     #remove the dead
     p[[i]] <- p[[i]] - rbinom(21, p[[i]], m[, 10+i])
 
     #find the total number of newborns who acquire the language
-    newborns <- sum(rbinom(21, p[[i]], f[, 10+i]*it_predictions[1+i, it_traject]))
+    newborns <- sum(rbinom(21, p[[i]], f[, 10+i]*it_value))
     
     #add the newborns to the population next year
     p[[i+1]] <- c(newborns, p[[i]])[-22]
@@ -351,10 +244,10 @@ fullforecast_fct <- function(r){
   }
 
 #run function
-fullforecast <- bind_rows(lapply(1:100, function(x) fullforecast_fct(x)))
+fullforecast <- bind_rows(lapply(1:1000, function(x) fullforecast_fct(x)))
            
 #compare result with 'real' population
-#year 2101
+#data frame with results for year 2101
 forecast_yr2101 <- fullforecast %>% 
   filter(year==2101) %>% 
   group_by(age) %>% 
@@ -363,6 +256,7 @@ forecast_yr2101 <- fullforecast %>%
             upper = quantile(n, .95)) %>% 
   mutate(observed = N[[31]]) 
 
+#show results in year 2101
 forecast_yr2101 %>% 
   pivot_longer(c(q2, lower, upper, observed), values_to = "value", names_to = "valuetype") %>% 
   group_by(valuetype) %>% 
@@ -370,12 +264,3 @@ forecast_yr2101 %>%
   pivot_wider(values_from = sum, names_from = valuetype) %>% 
   select(lower, q2, upper, observed)
 
-forecast_yr2101 %>% 
-  filter(q2>0) %>% 
-  pull(age) %>% 
-  min
-
-forecast_yr2101 %>% 
-  filter(observed>0) %>% 
-  pull(age) %>% 
-  min
