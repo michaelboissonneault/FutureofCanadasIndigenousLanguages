@@ -85,6 +85,9 @@ ggplot(N_df %>% group_by(year) %>% summarise(sum_N = sum(N)))+
 #Consider the population above to be the 'true', underlying population
 #We dispose of five censuses (2001, 2006, 2011, 2016, 2021) to estimate its size and structure by age
 #However, speaker detection in the census is prone to error 
+#We measure the extent of the detection error between censuses and include it in our calculations
+#But first, we need to adjust the speaker numbers by age to account for the effect of mortality over time
+#For this, we estimate five populations in the year 2001 based on each census counts
 ################################################################################
 #Draw 5 random samples from a log-normal distribution with mean 0
 #These are the year-specific deviations from the true (unobserved) population
