@@ -51,7 +51,7 @@ f <- rbind(matrix(nrow=2, ncol=30, 0), f, matrix(nrow=11, ncol=30, 0))/400
 N <- list(c(100, 70, rep(50, 10), seq(40, 0, -5)))
           
 #intergenerational transmission ratio, whole period
-itr <- 1 / (1+exp(1)^(.25*(1:30-10)))
+itr <- 1 / (1+exp(1)^(.2*(1:30-10)))
 plot(seq(1951, 2096, 5), itr)
 
 #microsimulation function
@@ -87,7 +87,7 @@ ggplot(N_df %>% group_by(year) %>% summarise(sum_N = sum(N)))+
 #However, speaker detection in the census is prone to error 
 #We measure the extent of the detection error between censuses and include it in our calculations
 #But first, we need to adjust the speaker numbers by age to account for the effect of mortality over time
-#For this, we estimate for the year 1996 five populations based on each census counts 
+#For this, we estimate for the year 2001 five populations based on each census counts 
 ################################################################################
 #Draw 5 random samples from a log-normal distribution with mean 0
 #These are the year-specific deviations from the true (unobserved) population
@@ -109,7 +109,7 @@ ggplot(N_n_df)+
   coord_flip()
 
 #Estimation##################################################################### 
-#We use the 5 census snap-shots to estimate a single "real" count in the year 1996
+#We use the 5 census snap-shots to estimate a single "real" count in the year 2001
 #This requires backcasting,
 #i.e. applying mortality probabilities retrospectively to the counts in the years 2001...2021 
 #to obtain counts that are free of the influence of mortality 
@@ -159,7 +159,7 @@ lambda <- n01 %>%
 #standard deviation of the errors 
 sd_obs_error <- sd(observed_error) 
 
-#Function to forecast the population from in each census year t-5 until year t
+#Function to forecast the population in each census year t-5 until year t
 #Allows to estimate the probability of intergenerational transmission in the years 2001 to 2021
 #The probability is obtained by dividing the number of children ages 0-4 in the observed data
 #by the number of children that would be observed assuming that all children would learn the language
@@ -185,18 +185,23 @@ it_01_21 <- function(r){
   }
 
 #run function to see trend in it
-it_trend <- bind_rows(lapply(1:1000, function(x) it_01_21(x)))
+it_trend <- bind_rows(lapply(1:300, function(x) it_01_21(x)))
 
 #show result (red line is real (unobserved) it)
 ggplot(it_trend)+
   geom_line(aes(census, itr), linewidth = 2, color = 'red')+
   geom_line(aes(census, proportion, group = run), alpha = .05)
 
-#for each run, estimate log-linear model
-it_trend_linear <- it_trend %>% group_by(run) %>% do(model = lm(log(proportion) ~ census, data =.))
+#for the beta model, values should not equal 0 or 1
+it_trend <- it_trend %>% mutate(proportion = ifelse(proportion>=1, .999, proportion),
+                                proportion = ifelse(proportion<=0, .001, proportion))
+
+#for each run, estimate beta model (Cribari-Neto Zeileis 2023 J. Statist. Software)
+beta_model <- it_trend %>% group_by(run) %>% do(model = betareg(proportion ~ census, data = .))
 
 #extract the predictions until year 2101
-it_predictions <- sapply(1:1000, function(x) exp(predict(it_trend_linear$model[[x]], newdata = data.frame(census=seq(2001, 2101, 5)))))
+it_predictions <- sapply(1:300, function(x) 
+  predict(beta_model$model[[x]], newdata = data.frame(census=seq(2001, 2101, 5))))
 
 #show predictions
 ggplot(data.frame(it_predictions) %>% 
@@ -215,7 +220,7 @@ fullforecast_fct <- function(r){
   ratio <- rlnorm(1, 0, sd_obs_error)
   
   #draw random number for it trajectory 
-  it_traject <- sample(1:1000, 1)
+  it_traject <- sample(1:300, 1)
   
   #Population in 2001
   p <- list(rpois(1:21, lambda*ratio))
@@ -228,13 +233,13 @@ fullforecast_fct <- function(r){
     it_value <- ifelse(it_value>1, 1, it_value)
     
     #remove the dead
-    p[[i]] <- p[[i]] - rbinom(21, p[[i]], m[, 10+i])
+    p[[i+1]] <- p[[i]] - rbinom(21, p[[i]], m[, 10+i])
 
     #find the total number of newborns who acquire the language
-    newborns <- sum(rbinom(21, p[[i]], f[, 10+i]*it_value))
+    newborns <- sum(rbinom(21, p[[i+1]], f[, 10+i]*it_value))
     
     #add the newborns to the population next year
-    p[[i+1]] <- c(newborns, p[[i]])[-22]
+    p[[i+1]] <- c(newborns, p[[i+1]])[-22]
     
     }
 
@@ -244,22 +249,20 @@ fullforecast_fct <- function(r){
   }
 
 #run function
-fullforecast <- bind_rows(lapply(1:1000, function(x) fullforecast_fct(x)))
+fullforecast <- bind_rows(lapply(1:300, function(x) fullforecast_fct(x)))
            
-#compare result with 'real' population
-#data frame with results for year 2101
-forecast_yr2101 <- fullforecast %>% 
-  filter(year==2101) %>% 
-  group_by(age) %>% 
-  summarise(q2 = quantile(n, .5),
-            lower = quantile(n, .05),
-            upper = quantile(n, .95)) %>% 
-  mutate(observed = N[[31]]) 
+#total population by year (median and 90% bounds)
+ff_sum <- fullforecast %>% group_by(run, year) %>% summarise(sum_n = sum(n)) %>%
+  group_by(year) %>% summarise(q2 = quantile(sum_n, .5), lower = quantile(sum_n, .05), upper = quantile(sum_n, .95))
 
-#show results in year 2101
-forecast_yr2101 %>% 
-  pivot_longer(c(q2, lower, upper, observed), values_to = "value", names_to = "valuetype") %>% 
-  group_by(valuetype) %>% 
-  summarise(sum = sum(value)) %>% 
-  pivot_wider(values_from = sum, names_from = valuetype) %>% 
-  select(lower, q2, upper, observed)
+#add real trend 
+ff_sum <- ff_sum %>% 
+  left_join(bind_rows(lapply(11:31, function(x) data.frame(year = seq(1951, 2101, 5)[x], real = sum(N[[x]])))))
+
+#pivot longer
+ff_sum_long <- ff_sum %>% pivot_longer(c(q2, real), names_to = "object", values_to = 'value')
+
+#show result
+ggplot(ff_sum_long)+
+  geom_line(aes(year, value, linetype = object, group = object), linewidth = 1.5)+
+  geom_ribbon(aes(year, ymin = lower, ymax = upper), alpha=.2)
