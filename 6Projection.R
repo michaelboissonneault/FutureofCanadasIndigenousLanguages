@@ -144,17 +144,30 @@ proj_fct <- function(l, r){
   }
   
   #put result in data frame
-  data.frame(run=r, 
+  df <- data.frame(run=r, 
              name = l, 
              year = rep(seq(2001, 2101, 5), each = 21), 
              age = rep(seq(0, 100, 5), 21), 
              n = unlist(p))
   
+  #list containing: sum of speakers by year, speakers by age in year 2100
+  list(df %>%
+         group_by(run, name, year) %>% 
+         summarise(sum_n = sum(n)),
+       df %>% 
+         filter(year==2101))
+  
 }
 
+#specify number of runs
+runs <- 1000
+
 #run function
-proj_results <- bind_rows(lapply(names, function(x) 
-  lapply(1:100, function(y) proj_fct(x, y))))
+proj_results <- lapply(names, function(x) lapply(1:runs, function(y) proj_fct(x, y)))
+
+#save results
+saveRDS(bind_rows(lapply(1:length(names), function(x) lapply(1:runs, function(y) proj_results[[x]][[y]][[1]]))), "Results/sumbyyear")
+saveRDS(bind_rows(lapply(1:length(names), function(x) lapply(1:runs, function(y) proj_results[[x]][[y]][[2]]))), "Results/yr2101byage")
 
 ################################################################################
 #ANALYSIS#######################################################################
