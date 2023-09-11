@@ -15,9 +15,9 @@ library(ggpubr)
 theme_set(theme_bw())
 
 #read in mortality and fertility matrices
-m <- readRDS('m1')
-m_0 <- readRDS('m1_0')
-f <- readRDS('f')
+m1 <- readRDS('DemographicParameters')[[1]]
+m1_0 <- readRDS('DemographicParameters')[[2]]
+f <- readRDS('DemographicParameters')[[5]]
 
 #raw counts, censuses 2001-2021
 sc <- readRDS("scdata") %>% 

@@ -16,11 +16,12 @@ library(betareg)
 theme_set(theme_bw())
 
 #read in life and fertility matrices
-m1 <- readRDS('m1')[, -c(1:5)]
-m1_0 <- readRDS('m1_0')[-c(1:5)]
-m2 <- readRDS('m2')[, -c(1:5)]
-m2_0 <- readRDS('m2_0')[-c(1:5)]
-f <- readRDS('f')[, -c(1:5)]
+m1 <- readRDS('DemographicParameters')[[1]][, -c(1:5)]
+m1_0 <- readRDS('DemographicParameters')[[2]][-c(1:5)]
+m2 <- readRDS('DemographicParameters')[[3]][, -c(1:5)]
+m2_0 <- readRDS('DemographicParameters')[[4]][-c(1:5)]
+f <- readRDS('DemographicParameters')[[5]][, -c(1:5)]
+
 
 #load speakers data
 backcast <- readRDS("backcast") %>% 

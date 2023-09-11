@@ -17,9 +17,9 @@ library(tidyverse)
 theme_set(theme_bw())
 
 #read in life and fertility matrices
-m1 <- readRDS('m1')[, -c(1:5)]
-m2 <- readRDS('m2')[, -c(1:5)]
-f <- readRDS('f')[, -c(1:5)]
+m1 <- readRDS('DemographicParameters')[[1]][, -c(1:5)]
+m2 <- readRDS('DemographicParameters')[[3]][, -c(1:5)]
+f <- readRDS('DemographicParameters')[[5]][, -c(1:5)]
 
 #Backcast data year 2001
 n01 <-  readRDS("backcast") %>% filter(year==2001)

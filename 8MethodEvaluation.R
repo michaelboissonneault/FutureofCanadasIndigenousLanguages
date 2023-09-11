@@ -8,7 +8,9 @@
 #1. PACKAGES & DATA
 #2. THE REAL (UNOBSERVED) POPULATION, 1951-2101
 #3. THE SYNTHETIC (OBSERVED) POPULATION, 2001-2021
-
+#4. BACKCAST
+#5. INTERGENERATIONAL TRANSMISSION
+#6. PROJECTION
 ################################################################################
 ##1. PACKAGES & DATA############################################################
 ################################################################################
@@ -22,9 +24,9 @@ library(betareg)
 theme_set(theme_bw())
 
 #read in mortality and fertility matrices
-m <- readRDS('m1')
-m_0 <- readRDS('m1_0')
-f <- readRDS('f')
+m <- readRDS('DemographicParameters')[[1]]
+m_0 <- readRDS('DemographicParameters')[[2]]
+f <- readRDS('DemographicParameters')[[5]]
 
 #the mortality and fertility matrices contains probabilities taken from the UN's World Population Prospects 2022
 #which correspond to the estimates and projections for the lower-middle-income group of countries
@@ -118,7 +120,7 @@ backcast_fct <- function(x){
   p <- list(n[[x]])
   
   #specify the mortality schedule
-  m_rev <- m[ , which(seq(1951, 2096, 5)==seq(2001, 2021, 5)[x]):7]
+  m_rev <- m[ , which(seq(1951, 2096, 5)==seq(2001, 2021, 5)[x]):6]
   
   for (i in 1:ncol(m_rev)){
     
@@ -143,16 +145,16 @@ n76_mean <- n76 %>%
   summarise(mean_n = mean(n))
 
 #compare with real counts
-n76_N <- n76 %>% left_join(data.frame(age = seq(0, 100, 5), year = 1981, N = N[[7]]))
+n76_N <- n76 %>% left_join(data.frame(age = seq(0, 100, 5), year = 1991, N = N[[9]]))
 
-ggplot(n76_N %>% filter(year==1981) %>% mutate(census = factor(census)))+
+ggplot(n76_N %>% filter(year==1991) %>% mutate(census = factor(census)))+
   geom_line(aes(age, n, group=census, color=census))+
   geom_smooth(aes(age, n))+
   geom_line(aes(age, N), linewidth = 2)+
   ggtitle("Black line is real pop, colored ones are the model applied to the data in each year, while the blue one is their average")
 
 ################################################################################
-#5 INTERGENERATIONAL TRANSMISSION###############################################
+#5. INTERGENERATIONAL TRANSMISSION###############################################
 ################################################################################
 #Function to forecast populations between 1976 and 2021 supposing full intergenerational transmission
 #We then divide the observed counts by those obtained supposing full inttergenerational transmission
@@ -246,7 +248,7 @@ ggplot(it_df %>%
   ggtitle("Solid line is real it, shaded area the model's 90% CI")
 
 ################################################################################
-#6 PROJECTION###################################################################
+#6. PROJECTION##################################################################
 ################################################################################
 #The projection is based on the estimated population in 2001 
 #and the estimated intergenerational transmission rates
