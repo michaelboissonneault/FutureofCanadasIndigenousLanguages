@@ -120,7 +120,7 @@ backcast_fct <- function(x){
   p <- list(n[[x]])
   
   #specify the mortality schedule
-  m_rev <- m[ , which(seq(1951, 2096, 5)==seq(2001, 2021, 5)[x]):6]
+  m_rev <- m[ , which(seq(1956, 2101, 5)==seq(2001, 2021, 5)[x]):6]
   
   for (i in 1:ncol(m_rev)){
     
@@ -151,7 +151,7 @@ ggplot(n76_N %>% filter(year==1991) %>% mutate(census = factor(census)))+
   geom_line(aes(age, n, group=census, color=census))+
   geom_smooth(aes(age, n))+
   geom_line(aes(age, N), linewidth = 2)+
-  ggtitle("Black line is real pop, colored ones are the model applied to the data in each year, while the blue one is their average")
+  ggtitle("Black line is real pop, colored ones are the model applied to the data in each year, blue is their average")
 
 ################################################################################
 #5. INTERGENERATIONAL TRANSMISSION###############################################
@@ -237,7 +237,8 @@ it_df_real <- left_join(it_df, data.frame(year = seq(1956, 2101, 5), real_it = i
 ggplot(it_df_real)+
   geom_line(aes(year, synthetic_it, group = run), alpha = .05)+
   geom_smooth(aes(year, synthetic_it))+
-  geom_line(aes(year, real_it), color = 'red')
+  geom_line(aes(year, real_it), color = 'red')+
+  ggtitle("Red line is real it, grey ones are the estimates, blue their average")
 
 ggplot(it_df %>% 
     group_by(year) %>% 
@@ -352,4 +353,3 @@ ggplot(pop_byage)+
   facet_wrap(~year)+
   coord_flip()+
   ggtitle("Dots are real pop values, shaded area the model's 90% CI")
-

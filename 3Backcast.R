@@ -13,7 +13,7 @@ library(tidyverse)
 #set theme
 theme_set(theme_bw())
 
-#read in life and fertility matrices
+#read in life and fertility matrices (script 2DataPreparation_Demographic)
 m1 <- readRDS('DemographicParameters')[[1]][, -c(1:5)]
 m1_0 <- readRDS('DemographicParameters')[[2]][-c(1:5)]
 m2 <- readRDS('DemographicParameters')[[3]][, -c(1:5)]
@@ -24,7 +24,7 @@ f <- readRDS('DemographicParameters')[[5]][, -c(1:5)]
 m1_rev <- m1[,c(9:1)]
 m2_rev <- m2[,c(9:1)]
 
-#Statcan data
+#Statcan data (script 1DataPreparation_Linguistic)
 sc <- readRDS("scdata") 
 
 ################################################################################

@@ -187,7 +187,7 @@ trend_df <- trend_df %>%
   mutate(name = factor(name, levels = 
                          trend_df %>% filter(year==2001) %>% arrange(-q2) %>% pull(name)))
 
-#figure with trends 2001-2101
+#Population trends 2001-2101
 ggplot(trend_df)+
   geom_line(aes(year, q2))+
   geom_ribbon(aes(year, ymin = lower, ymax = upper), alpha = .2)+
@@ -196,6 +196,13 @@ ggplot(trend_df)+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ggsave("Figures/SM5.tiff", width = 8.3, height = 11.7)
+
+#trend in all languages
+trend_df %>% 
+  group_by(year) %>%
+  summarise(total = sum(q2)) %>% 
+  pull(total) %>%
+  plot(x = seq(2001, 2101, 5))
 
 ################################################################################
 #4 EXAMPLE######################################################################

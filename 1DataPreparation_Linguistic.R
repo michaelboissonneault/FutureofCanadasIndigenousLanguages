@@ -1,12 +1,12 @@
 ################################################################################
 #In this do file
-#Put together and clean StatCan data on speaker numbers, Indigenous languages, 2001-2021
+#Clean and put together StatCan data on speaker numbers, Indigenous languages, 2001-2021
 #1. YEAR 2001
 #2. YEAR 2006
 #3. YEAR 2011
 #4. YEAR 2016
 #5. YEAR 2021
-#6. YEAR 2001
+#6. YEARS 2001-2021
 
 rm(list=ls())
 

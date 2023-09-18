@@ -22,7 +22,6 @@ m2 <- readRDS('DemographicParameters')[[3]][, -c(1:5)]
 m2_0 <- readRDS('DemographicParameters')[[4]][-c(1:5)]
 f <- readRDS('DemographicParameters')[[5]][, -c(1:5)]
 
-
 #load speakers data
 backcast <- readRDS("backcast") %>% 
   mutate(name_census = paste(name, census)) %>%
@@ -56,6 +55,9 @@ age0_4 <- sapply(names, function(l)
 
 #specify number of runs
 runs <- 500
+
+#create folder to store results
+dir.create("IntergenerationalTransmission")
 
 #define function
 it_fct <- function(l){

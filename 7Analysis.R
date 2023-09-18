@@ -23,6 +23,9 @@ theme_set(theme_bw())
 #vector of names 
 names <- readRDS("scdata") %>% pull(name) %>% unique()
 
+#create folder to store figures
+dir.create("Figures")
+
 ################################################################################
 #2. FIGURE 1: MAP
 ################################################################################

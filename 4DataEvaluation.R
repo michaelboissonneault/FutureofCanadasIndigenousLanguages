@@ -86,14 +86,7 @@ n01_sum <- n01_sum %>%
   ))
 
 #visualization
-ggplot(n01_sum %>% filter(grepl('continuum', name)))+
-  geom_tile(aes(census, name, fill=pvalue_discrete, color=pvalue_discrete))+
-  scale_x_continuous(breaks=seq(2001, 2021, 5))+
-  ylab("")+
-  scale_fill_brewer(palette = 'Spectral')+
-  scale_color_brewer(palette = 'Spectral')
-
-ggplot(n01_sum %>% filter(!grepl('continuum', name), !name %in% c('Ojibway', 'Cree', 'ikt')))+
+ggplot(n01_sum)+
   geom_tile(aes(census, name, fill=pvalue_discrete, color=pvalue_discrete))+
   scale_x_continuous(breaks=seq(2001, 2021, 5))+
   ylab("")+
@@ -142,8 +135,8 @@ ggplot(interactions)+
 
 #sum pvalues by language and census year
 sum_pvalues <- interactions %>% 
-  pivot_longer(c(year1, year2), values_to = 'year', names_to = 'fuhgetaboutit') %>% 
-  select(-fuhgetaboutit) %>%
+  pivot_longer(c(year1, year2), values_to = 'year', names_to = 'whatever') %>% 
+  select(-whatever) %>%
   group_by(name, year) %>% 
   summarise(sum_pvalue = sum(pvalue)) %>%
   mutate(sum_pv_dis = case_when(

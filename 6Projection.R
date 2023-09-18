@@ -62,6 +62,9 @@ se_census_ratio <- totalbycensus01 %>%
 #specify number of runs
 runs <- 500
 
+#create folder to store results
+dir.create("Results")
+
 #function to run the projection model
 proj_fct <- function(l){
   
