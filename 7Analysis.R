@@ -26,9 +26,6 @@ names <- readRDS("scdata") %>% pull(name) %>% unique()
 #create folder to store figures
 dir.create("Figures")
 
-################################################################################
-#2. FIGURE 1: MAP
-################################################################################
 #population size in 2001 and 2101 
 fig2_df <- bind_rows(lapply(names, function(x)
   readRDS(paste("Results/", x, sep = '')) %>% 
@@ -39,6 +36,9 @@ fig2_df <- bind_rows(lapply(names, function(x)
     summarise(q2 = quantile(n, .5), lower = quantile(n, .1), upper = quantile(n, .9)))) %>%
   mutate(year = factor(year))
 
+################################################################################
+#2. FIGURE 1: MAP
+################################################################################
 #Population in 2001 and coordinates
 fig1_df <- fig2_df %>%
   filter(year==2001) %>%
