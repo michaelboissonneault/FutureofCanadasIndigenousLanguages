@@ -1,6 +1,6 @@
 ################################################################################
 #In this do file
-#Clean and put together StatCan data on speaker numbers, Indigenous languages, 2001-2021
+#Clean and put together StatCan data on speaker numbers, Indigenous languages, by groups of five years of age, years 2001-2021
 #1. YEAR 2001
 #2. YEAR 2006
 #3. YEAR 2011
@@ -59,7 +59,7 @@ sc01 <- sc01 %>%
     name == "Thompson (Ntlakapamux)" ~ "thp",
     name == "Salish, n.i.e." ~ "Salish languages",
     
-    name == "Dakota/Sioux" ~ "Siouan languages",
+    name == "Dakota/Sioux" ~ "Siouan",
     
     name == "Gitksan" ~ "git",
     name == "Nishga" ~ "ncg",
@@ -70,22 +70,22 @@ sc01 <- sc01 %>%
     
     name == "Inuktitut (Eskimo)" ~ "ike",
     
-    name == "Aboriginal, n.i.e." ~ "Indigenous languages"))
+    name == "Aboriginal, n.i.e." ~ "Indigenous, n.i.e."))
 
 #languages to which we assign NA speakers because they are not in this census round
 sc01 <- bind_rows(sc01, 
                   data.frame(
                     iso = c("crj", "crk", "crl", "crm", "csw", "cwd", #Cree languages
-                          "moe","nsk",                              #Innu-Naskapi
-                          "ciw", "ojw", "otw",                      #Ojibway
-                          "bcr", "bea","sek", "kkz","srs", "ttm",
-                          "tce","tht", "Slavey", "Tutchone",        #Athabaskan
-                          "cay", "one",                             #Iroquoian
-                          "hur", "lil", "squ","str", "oka", "coo",  #Salish
-                          "dak", "sto", "asb",                      #Siouan
-                          "has", "hei", "kwk",                      #Wakashan
-                          "ikt", "Inuvialuktun", "Inuit languages", #Inuit languages
-                          "crg"),                                   #Other
+                            "moe","nsk",                              #Innu-Naskapi
+                            "ciw", "ojw", "otw",                      #Ojibway
+                            "bcr", "bea","sek", "kkz","srs", "ttm",
+                            "tce","tht", "Slavey", "Tutchone",        #Athabaskan
+                            "cay", "one",                             #Iroquoian
+                            "hur", "lil", "squ","str", "oka", "coo",  #Salish
+                            "dak", "sto", "asb", "Siouan languages",  #Siouan
+                            "has", "hei", "kwk",                      #Wakashan
+                            "ikt", "Inuvialuktun", "Inuit languages", #Inuit languages
+                            "crg", "Indigenous, n.o.s."),             #Other
                     pop = NA,
                     year = 2001))
 
@@ -162,10 +162,11 @@ sc11 %>% filter(is.na(iso)) %>% pull(name) %>% unique() %>% sort()
 #add iso's manually
 sc11 <- sc11 %>% 
   mutate(iso = case_when(
-    name == "Aboriginal, n.i.e." ~ "Indigenous languages",
+    name == "Aboriginal, n.i.e." ~ "Indigenous, n.i.e.",
     name == "Beaver" ~ "bea", 
     name == "Cayuga" ~ "cay",
-    name == "Cree, n.o.s." ~ "Cree", #I could have added Cree, n.i.e. but this includes only 5 speakers
+    name == "Cree, n.o.s." ~ "Cree", 
+    name == "Cree, n.i.e." ~ "Cree",
     name == "Dakota" ~ "dak",
     name == "Gwich'in" ~ "gwi",
     name == "Haisla" ~ "has",
@@ -272,7 +273,7 @@ sc16 %>% filter(is.na(iso)) %>% pull(name) %>% unique() %>% sort()
 #change iso's manually
 sc16 <- sc16 %>% 
   mutate(iso = case_when(
-    name == "Aboriginal, n.o.s." ~ "Indigenous languages",
+    name == "Aboriginal, n.o.s." ~ "Indigenous, n.o.s.",
     name == "Athabaskan, n.i.e." ~ "Athabaskan languages",
     name == "Babine (Wetsuwet'en)" ~ "bcr", 
     name == "Comox" ~ "coo",
@@ -350,14 +351,14 @@ sc21 <- sc21 %>%
     name == "Anishinaabemowin (Chippewa)" ~ "ciw", 
     name == "Assiniboine" ~ "asb",
     name == "Dene, n.o.s." ~ "chp",
-    name == "Indigenous, n.i.e." ~ "Indigenous languages",
-    name == "Indigenous, n.o.s." ~ "Indigenous languages",
     name == "Inuktut (Inuit), n.i.e." ~ "Inuit languages",
     name == "Ojibway, n.o.s." ~ "Ojibway",
     name == "Saulteau (Western Ojibway)" ~ "ojw",
     name == "Tutchone, n.o.s." ~ "Tutchone",
     name == "Wetsuwet'en-Babine" ~ "bcr",
     name == "Inuvialuktun" ~ "Inuvialuktun",
+    name == "Indigenous, n.i.e." ~ "Indigenous, n.i.e.",
+    name == "Indigenous, n.o.s." ~ "Indigenous, n.o.s.",
     TRUE ~ as.character(iso)))
 
 #add iso for languages that did not appear in this census data release
@@ -390,19 +391,43 @@ sc <- sc %>%
     name %in% c('Chipewyan', "chp") ~ "Dene",
     name %in% c("scs", "xsl", "Slavey") ~ "Slavey",
     name %in% c("ttm", "tce", "Tutchone") ~ "Tutchone",
-    name %in% c("dak", "sto", "asb", "Siouan languages") ~ "Dakotan",
+    name %in% c("dak", "sto", "asb", "Siouan", "Siouan languages") ~ "Dakotan",
     name %in% c("ikt", "Inuvialuktun") ~ "Inuinnaqtun"))
 
 #find the speaker numbers for the different continua
-sc <- sc %>% bind_rows(sc %>% 
-                         filter(!is.na(continuum)) %>%
-                         group_by(age, year, continuum) %>% 
-                         summarise(pop = sum(pop, na.rm = T)) %>% 
-                         mutate(name = paste(continuum, "(cont.)")))
+sc <- sc %>% 
+  bind_rows(sc %>% 
+              filter(!is.na(continuum)) %>%
+              group_by(age, year, continuum) %>% 
+              summarise(pop = sum(pop, na.rm = T)) %>%
+              rename(name = continuum) %>%
+              mutate(name = case_when(
+                name == "Cree" ~ "Cree langs.",
+                name == "Ojibway" ~ "Ojibwa langs.",
+                name == "Slavey" ~ "Slavey (N & S)",
+                name == "Tutchone" ~ "Tutchone (N & S)",
+                name == "Dakotan" ~ "Dakotan langs.",
+                .default = as.character(name)),
+                group = "aggregate"))
+
+#find the speaker numbers for the category "Indigenous, n.o.s." (2016 and 2021)
+indigenous_nos <- sc %>% 
+  filter(name=="Indigenous, n.o.s.", !is.na(pop)) %>%
+  select(age, year, pop) %>%
+  rename(indig_nos = pop)
+
+#add the nos speakers to the languages in 2016 and 2021, number equal proportion in entire indigenous speaker community
+sc <- sc %>% 
+  left_join(sc %>% filter(is.na(continuum), year>=2016, !is.na(pop)) %>% group_by(age, year) %>% summarise(total = sum(pop))) %>%
+  mutate(prop = pop / total) %>% 
+  left_join(indigenous_nos) %>% 
+  mutate(pop = ifelse(is.na(prop), pop, pop + prop*indig_nos)) %>%
+  select(-total, -prop, -indig_nos) %>%
+  arrange(year, name, age)
 
 #identify languages or continua that appear 5 times or more
 fivetimes <- sc %>% 
-  filter(!is.na(pop), !is.na(year), !is.na(age), !grepl('languages', name), (grepl("cont.", name) | is.na(continuum))) %>% 
+  filter(!is.na(pop), !is.na(year), !is.na(age), is.na(continuum), !grepl('languages', name)) %>% 
   distinct(name, year) %>% 
   group_by(name) %>%
   summarise(n = n()) %>%
@@ -411,21 +436,14 @@ fivetimes <- sc %>%
 
 #keep observations that appear 5 times
 sc <- sc %>% 
-  filter(name %in% fivetimes, !is.na(pop), !is.na(age)) %>%
+  filter(name %in% fivetimes, !is.na(age)) %>%
   select(-continuum) %>%
   arrange(year, name, age) 
   
-#add the sc names in 2021
+#add the sc names in 2021 and use them where possible
 sc <- left_join(sc, sc21 %>% select(name, iso) %>% unique() %>% rename(sc_name = 1, name = 2)) %>%
-  mutate(iso = ifelse(!is.na(sc_name), name, NA)) 
-
-#Innu-Naskapi to be called Innu-Naskapi instead of Innu-Naskapi (continuum)
-sc <- sc %>% 
-  mutate(name = ifelse(name == 'Innu-Naskapi (cont.)', 'Innu-Naskapi', name))
-
-#use the most recent denomination
-sc <- sc %>% 
-  mutate(name = ifelse(is.na(sc_name), name, str_remove(sc_name, " \\s*\\([^\\)]+\\)"))) %>%
+  mutate(iso = ifelse(!is.na(sc_name), name, NA),
+         name = ifelse(is.na(sc_name), name, str_remove(sc_name, " \\s*\\([^\\)]+\\)"))) %>%
   select(-sc_name)
 
 #save

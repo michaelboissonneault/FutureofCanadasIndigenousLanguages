@@ -16,35 +16,30 @@ library(tidyverse)
 #set theme
 theme_set(theme_bw())
 
-#read in life and fertility matrices
-m1 <- readRDS('DemographicParameters')[[1]][, -c(1:5)]
-m2 <- readRDS('DemographicParameters')[[3]][, -c(1:5)]
-f <- readRDS('DemographicParameters')[[5]][, -c(1:5)]
-
 #Backcast data year 2001
-n01 <-  readRDS("backcast") %>% filter(year==2001)
+backcast01_df <-  readRDS("backcast") %>% filter(year==2001)
 
 #vector of names 
-names <- n01 %>% pull(name) %>% unique()
+names <- backcast01_df %>% pull(name) %>% unique()
 
 #backcast data intro matrices
-backcast01 <- lapply(names, function(x) n01 %>% filter(name==x) %>% pull(n) %>% matrix(ncol=5))
+backcast01_m <- lapply(names, function(x) backcast01_df %>% filter(name==x) %>% pull(n) %>% matrix(ncol=5))
 
-#find total for each year and language, put in matrix
-totbyyr <- sapply(1:length(names), function(x) backcast01[[x]] %>% apply(2, sum))
+#find total for each year and language, put into matrix
+sum01_m <- sapply(1:length(names), function(x) backcast01_m[[x]] %>% apply(2, sum))
 
 #names ordered by tot pop size
-names_ordered <- names[order(apply(totbyyr, 2, sum))]
+names_ordered <- names[order(apply(sum01_m, 2, sum))]
 
 ################################################################################
 #2.TEST FOR THE EQUALITY OF THE TOTAL NUMBER OF SPEAKERS BETWEEN CENSUSES#######
 ################################################################################
 #standardize counts around each language's mean, put in vector
-totbyyr_stand <- c(sapply(1:length(names), function(x) totbyyr[,x]/apply(totbyyr, 2, mean)[x])-1)
+stsum01 <- c(sapply(1:length(names), function(x) sum01_m[,x] / apply(sum01_m, 2, mean)[x]) - 1)
 
 #normal distribution with mean and sd taken from the standardized counts
 #extract the pvalue for each observation
-pvalues <- sapply(1:length(totbyyr_stand), function(x) pnorm(totbyyr_stand[x], mean(totbyyr_stand), sd(totbyyr_stand)))
+pvalues <- sapply(1:length(stsum01), function(x) pnorm(stsum01[x], mean(stsum01), sd(stsum01)))
 
 #discretize pvalues
 pvalues_dis <- ifelse(pvalues<=0.01, "<=0.01",
@@ -54,24 +49,25 @@ pvalues_dis <- ifelse(pvalues<=0.01, "<=0.01",
                                            ifelse(pvalues>=0.9 & pvalues<.99, ">=0.9; <0.99",
                                                   ifelse(pvalues>=0.99, ">=0.99", ">0.2; <0.8"))))))
 
+#specify levels for the discrete values
 pvalues_dis <- factor(pvalues_dis, levels = c("<=0.01", ">0.01; <=0.1", ">0.1; <=0.2", ">0.2; <0.8", ">=0.8; <0.9", ">=0.9; <0.99", ">=0.99"))
 
 #put in data frame
-pvaluedf <- data.frame(name = factor(rep(names, each = 5), levels = names_ordered), 
-                       census = factor(seq(2001, 2021, 5)),
-                       n = c(totbyyr),
-                       pvalue = pvalues,
-                       pvalue_dis = pvalues_dis)
+pvalue_df <- data.frame(name = factor(rep(names, each = 5), levels = names_ordered), 
+                        census = factor(seq(2001, 2021, 5)),
+                        n = c(sum01_m),
+                        pvalue = pvalues,
+                        pvalue_dis = pvalues_dis)
 
 #visualization of discrete pvalues
-ggplot(pvaluedf)+
+ggplot(pvalue_df)+
   geom_tile(aes(census, name, fill = pvalue_dis, color = pvalue_dis))+
   ylab("")+
   scale_fill_brewer(palette = 'Spectral', name = "P-value")+
   scale_color_brewer(palette = 'Spectral', name = "P-value")+
   xlab("Census")
 
-ggsave("Figures/pop_size_heatmap.tiff", width = 5, height = 8, dpi = 1000)
+ggsave("Figures/pop_size_heatmap.tiff", width = 4.5, height = 8, dpi = 1000)
 
 ################################################################################
 #3.INTERACTION TESTS FOR THE PARALLEL DISTRIBUTIONS OF SPEAKER NUMBERS BY AGE###
@@ -82,7 +78,7 @@ combi <- combn(1:5, 2)
 #estimate pvalues for the interaction census*age, for all 2x2 census combinations, for all languages
 interaction_pvalues <- lapply(1:length(names), function(x) 
   sapply(1:10, function(i) 
-    c(lm(c(backcast01[[x]][,combi[1,i]][1:11], backcast01[[x]][,combi[2,i]][1:11]) ~ rep(1:11, 2) + rep(c(0, 1), each = 11) + rep(1:11, 2) * rep(c(0, 1), each = 11)) %>%
+    c(lm(c(backcast01_m[[x]][,combi[1,i]][1:11], backcast01_m[[x]][,combi[2,i]][1:11]) ~ rep(1:11, 2) + rep(c(0, 1), each = 11) + rep(1:11, 2) * rep(c(0, 1), each = 11)) %>%
         summary() %>%
         coefficients())[16]))
 
@@ -111,12 +107,14 @@ ggplot(interaction_sum)+
   xlab("Census")+
   ylab("")
 
+ggsave("Figures/parallel_agedist_heatmap.tiff", width = 4.5, height = 8, dpi = 1000)
+
 ################################################################################
 #4. SUMMARIZING AND SAVING RESULTS
 ################################################################################
 #identify the extreme combinations of year * language
 bind_rows(
-  pvaluedf %>%
+  pvalue_df %>%
     filter(pvalue<=0.01 | pvalue>=0.99) %>%
     select(name, census) %>% 
     mutate(reason = "pop"),
