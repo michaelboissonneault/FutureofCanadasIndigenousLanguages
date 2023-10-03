@@ -23,10 +23,14 @@ library(betareg)
 #set theme
 theme_set(theme_bw())
 
-#read in mortality and fertility matrices
-m <- readRDS('DemographicParameters')[[1]]
-m_0 <- readRDS('DemographicParameters')[[2]]
-f <- readRDS('DemographicParameters')[[5]]
+#mortality (WPP No income group available; remove years 1951 through 1996)
+m <- readRDS('DemographicParameters')[[1]][[6]][[1]]
+
+#mortality between 0 and 5
+m0 <- readRDS('DemographicParameters')[[1]][[6]][[2]]
+
+#fertility (Lower-middle-income countries)
+f <- readRDS('DemographicParameters')[[2]][[5]]
 
 #the mortality and fertility matrices contains probabilities taken from the UN's World Population Prospects 2022
 #which correspond to the estimates and projections for the lower-middle-income group of countries
@@ -41,7 +45,7 @@ f <- readRDS('DemographicParameters')[[5]]
 N <- list(rpois(1:21, (21:1)^2/4))
 
 #intergenerational transmission rates, whole period
-itr <- 1 / (1+exp(1)^(.1*(1:30-10)))
+itr <- 1 / (1+exp(1)^(.25*(1:30-10)))
 plot(seq(1951, 2096, 5), itr)
 
 #Microsimulation to let the population change over time given mortality, fertility and intergenerational transmission rates
@@ -55,7 +59,7 @@ for (t in 1:30){
   nb <- sum(rbinom(21, N[[t+1]], f[, t]*itr[t]))
   
   #subtract the number of newborns that die between 0 and 5
-  nb <- nb - rbinom(1, nb, m_0[t])
+  nb <- nb - rbinom(1, nb, m0[t])
   
   #Add the newborns to the population
   N[[t+1]] <- c(nb, N[[t+1]][-21])
@@ -144,7 +148,7 @@ backcast_fct <- function(x){
 n76 <- bind_rows(lapply(1:5, function(x) backcast_fct(x))) 
 
 #average counts by age, across all years, for each language
-n76_mean <- n76 %>% 
+n76_mean_df <- n76 %>% 
   filter(year==1976) %>%
   group_by(age) %>% 
   summarise(mean_n = mean(n))
@@ -170,6 +174,17 @@ ggsave('Figures/evaluation_backcast.png')
 #specify number of runs
 runs <- 100
 
+#put speaker counts age 0 in 1981-2001 in vector
+age0_81_01 <- n76 %>% 
+  filter(age==0, year>=1981, year<=2001) %>% 
+  group_by(year) %>% 
+  summarise(mean_n = mean(n)) %>% 
+  pull(mean_n) %>%
+  rpois(5, .)
+
+#put speaker counts in 1976 into vector
+n76_mean <- n76_mean_df %>% pull(mean_n)
+
 #define function
 it_fct <- function(){
   
@@ -181,7 +196,7 @@ it_fct <- function(){
     tryCatch({
       
       #establish population in 1976
-      p <- n76_mean %>% pull(mean_n) %>% rpois(1:10, .) %>% list()
+      p <- n76_mean %>% rpois(1:10, .) %>% list()
       
       #loop until 2001
       for (i in 1:5){
@@ -193,7 +208,7 @@ it_fct <- function(){
         newborns <- sum(rbinom(length(p[[i+1]]), p[[i+1]], f[, 5+i]))
         
         #remove newborns who die between 0 and 2.5 years old
-        newborns <- round(newborns - newborns*m_0[5+i])
+        newborns <- round(newborns - newborns*m0[5+i])
         
         #add the newborns to the population next year
         p[[i+1]] <- c(newborns, p[[i+1]])
@@ -204,12 +219,7 @@ it_fct <- function(){
       counter <- sapply(2:6, function(x) p[[x]][1])
       
       #estimate actual number of children speakers
-      actual <- n76 %>% 
-        filter(age==0, year>=1981, year<=2001) %>% 
-        group_by(year) %>% 
-        summarise(mean_n = mean(n)) %>% 
-        pull(mean_n) %>%
-        rpois(5, .)
+      actual <- age0_81_01 %>% rpois(5, .)
       
       #find it values
       it_trend <- actual / counter 
@@ -227,18 +237,19 @@ it_fct <- function(){
     
   }
   
-  #put in df, save
-  data.frame(run = rep(1:runs, each=21),
-             year = rep(seq(2001, 2101, 5), runs),
-             synthetic_it = unlist(beta_pred)) 
+  #put in matrix, save
+  matrix(unlist(beta_pred), ncol=runs)
   
 }
 
-#run function, put result in df
-it_df <- it_fct()
+#run function, put result in matrix
+it_m <- it_fct()
 
-#add real it values
-it_df_real <- left_join(it_df, data.frame(year = seq(1956, 2101, 5), real_it = itr))
+#put in df, add real it values
+it_df_real <- data.frame(run = rep(1:runs, each = 21),
+                         year = seq(2001, 2101, 5),
+                         synthetic_it = c(it_m), 
+                         real_it = itr[-c(1:9)])
 
 #show results
 ggplot(it_df_real)+
@@ -265,24 +276,22 @@ ggsave('Figures/evaluation_it_df.png')
 #The projection is based on the estimated population in 2001 
 #and the estimated intergenerational transmission rates
 
-#population means by age in 2001
+#vector of population means by age in 2001
 n01 <- n76 %>% 
-  filter(year==2001) %>%
+  filter(year==2001, age<=80) %>%
   group_by(age) %>%
-  summarise(n = mean(n))
+  summarise(n = mean(n)) %>%
+  pull(n)
 
-#population totals by census in 2001
+#vector of population totals by census in 2001
 totalbycensus01 <- n76 %>% 
   filter(year==2001) %>%
   group_by(census) %>% 
-  summarise(sum = sum(n)) 
+  summarise(sum = sum(n)) %>%
+  pull(sum)
 
 #standard error of the ratio total / mean of totals  
-se <- totalbycensus01 %>%
-  mutate(mean_sum = mean(sum),
-         ratio = sum / mean_sum) %>%
-  pull(ratio) %>%
-  sd() / sqrt(5)
+se <- sd(totalbycensus01 / mean(totalbycensus01))  / sqrt(5)
          
 #specify number of runs
 runs <- 100
@@ -296,10 +305,10 @@ proj_fct <- function(){
   for (r in 1:runs){
     
     #estimate starting population
-    p <- c(n01 %>% filter(age<=80) %>% mutate(n = round(n*rlnorm(1, 0, se))) %>% pull(n) %>% rpois(17, .), 0,0,0,0) %>% list()
+    p <- c(rpois(17, n01*rlnorm(1, 0, se)), rep(0, 4)) %>% list()
     
     #vector of intergenerational transmission
-    it <- it_df %>% filter(run==r) %>% pull(synthetic_it)
+    it <- it_m[,r]
     
     #Loop through 2101
     for (i in 1:20){
@@ -311,7 +320,7 @@ proj_fct <- function(){
       newborns <- sum(rbinom(21, p[[i+1]], f[ , 10+i]*it[i]))
       
       #remove the newborns that die between 0 and 2.5
-      newborns <- round(newborns - newborns*m_0[10+i])
+      newborns <- round(newborns - newborns*m0[10+i])
       
       #add the newborns to the population next year
       p[[i+1]] <- c(newborns, p[[i+1]])[-22]
