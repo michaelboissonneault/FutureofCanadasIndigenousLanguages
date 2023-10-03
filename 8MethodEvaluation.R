@@ -260,16 +260,6 @@ ggplot(it_df_real)+
 
 ggsave('Figures/evaluation_it_df_real.png')
 
-ggplot(it_df %>% 
-    group_by(year) %>% 
-    summarise(q2 = quantile(synthetic_it, .5), lower = quantile(synthetic_it, .05), upper = quantile(synthetic_it, .95)) %>%
-    mutate(real_it = itr[10:30]))+
-  geom_line(aes(year, real_it))+
-  geom_ribbon(aes(year, ymin = lower, ymax = upper), alpha = .1)+
-  ggtitle("Solid line is real it, shaded area the model's 90% CI")
-
-ggsave('Figures/evaluation_it_df.png')
-
 ################################################################################
 #6. PROJECTION##################################################################
 ################################################################################
