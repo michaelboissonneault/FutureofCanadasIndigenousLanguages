@@ -16,7 +16,7 @@ library(tidyverse)
 #1.YEAR 2001####################################################################
 ################################################################################
 #load data, select appropriate information, add age vector
-sc01 <- read.csv("indigenousmothertongue2001.csv")[5:39, -2] %>% 
+sc01 <- read.csv("data/indigenousmothertongue2001.csv")[5:39, -2] %>% 
   pivot_longer(X0.4:X100., names_to="age", values_to="pop") %>%
   mutate(age = str_extract(age, "[0-9]+")) %>%
   rename(name = 1) %>%
@@ -95,7 +95,7 @@ sc01 %>% pull(iso) %>% unique()
 #2. YEAR 2006###################################################################
 ################################################################################
 #load data, select appropriate information, add age vector
-sc06 <- read.csv("indigenousmothertongue2006.csv")[5:40, -2] %>% 
+sc06 <- read.csv("data/indigenousmothertongue2006.csv")[5:40, -2] %>% 
   pivot_longer(X0.to.4.years:X100.years.and.over, names_to="age", values_to="pop") %>%
   mutate(age = str_extract(age, "[0-9]+")) %>%
   rename(name = 1) %>%
@@ -125,7 +125,7 @@ sc06 %>% pull(iso) %>% unique()
 ################################################################################
 #3. YEAR 2011###################################################################
 ################################################################################
-sc11 <- read.csv("indigenousmothertongue2011.csv")[7:80, -2] %>% 
+sc11 <- read.csv("data/indigenousmothertongue2011.csv")[7:80, -2] %>% 
   pivot_longer(X0.to.4.years:X100.years.and.over, names_to="age", values_to="pop") %>%
   mutate(age = str_extract(age, "[0-9]+")) %>%
   rename(name = 1) %>%
@@ -226,7 +226,7 @@ sc11 %>% arrange(iso) %>% pull(iso) %>% unique()
 ################################################################################
 #4. YEAR 2016###################################################################
 ################################################################################
-sc16 <- read.csv("indigenousmothertongue2016.csv")[8:89, -2] %>% 
+sc16 <- read.csv("data/indigenousmothertongue2016.csv")[8:89, -2] %>% 
   pivot_longer(X0.to.4.years:X100.years.and.over, names_to="age", values_to="pop") %>%
   mutate(age = str_extract(age, "[0-9]+")) %>%
   rename(name = 1) %>%
@@ -300,7 +300,7 @@ sc16 %>% pull(iso) %>% unique()
 #5. YEAR 2021###################################################################
 ################################################################################
 #load data
-sc21 <- read.csv("indigenousmothertongue2021.csv")[5:76, -2] %>% 
+sc21 <- read.csv("data/indigenousmothertongue2021.csv")[5:76, -2] %>% 
   pivot_longer(X0.to.4.years:X100.years.and.over, names_to="age", values_to="pop") %>%
   mutate(age = str_extract(age, "[0-9]+")) %>%
   rename(name = 1) %>%

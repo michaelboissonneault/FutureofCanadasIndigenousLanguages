@@ -61,8 +61,11 @@ bbox <- st_bbox(world)
 ylimits <- c(min(fig1_df$latitude)-1, max(fig1_df$latitude)+8)
 xlimits <- c(min(fig1_df$longitude)-2, max(fig1_df$longitude)+8)
 
-#Not sure what this does cause I copied it from Simon's
-world.rst <- ne_load(type="MSR_50M", category='raster', destdir=".", returnclass="sf")
+# unzip map raster data for loading
+unzip('data/MSR_50M.zip', exdir="data")
+
+# loads map raster data from naturalearth MSR_50m resolution dataset
+world.rst <- ne_load(type="MSR_50M", category='raster', destdir="data", returnclass="sf")
 world.rst.df <- raster::as.data.frame(world.rst, xy=TRUE)
 world.rst.df <- world.rst.df[dplyr::between(world.rst.df$x, bbox[['xmin']], bbox[['xmax']]), ]
 world.rst.df <- world.rst.df[dplyr::between(world.rst.df$y, xlimits[[1]], xlimits[[2]]), ]
@@ -521,7 +524,7 @@ ggsave("Figures/Fig3.tiff", height=7, width=6, dpi=1000)
 ################################################################################
 #5. TABLE 1: DORMANCY RISKS 
 ################################################################################
-bind_rows(lapply(names, function(x) 
+dormancy <- bind_rows(lapply(names, function(x) 
   readRDS(paste("Results/", x, sep = '')) %>% 
     filter(year==2101) %>%
     group_by(run) %>%
@@ -545,7 +548,7 @@ bind_rows(lapply(names, function(x)
       mutate(risk_interrupt_it = n_extinct) %>%
       select(-n_extinct)) %>% 
   mutate(xrisk = ifelse(is.na(xrisk), 0, xrisk)) %>%
-  arrange(-xrisk, -risk_interrupt_it) %>% 
-  left_join(fig_x %>% filter(year==2101) %>% select(name, q2, lower, upper)) %>% 
-  mutate(speaker_number = paste(q2, " (", lower, "-", upper, ")", sep = "")) %>% 
-  select(-q2, -lower, -upper)
+
+  arrange(-xrisk, -risk_interrupt_it)
+saveRDS(dormancy, 'dormancy')
+

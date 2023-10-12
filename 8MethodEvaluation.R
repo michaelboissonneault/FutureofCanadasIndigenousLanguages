@@ -74,11 +74,15 @@ ggplot(N_df)+
   geom_col(aes(age, N))+
   coord_flip()+
   facet_wrap(~year)
+ggsave('Figures/evaluation_popstructure_by_age.png')
+
+
 
 #Show the change over in the number of speakers
 ggplot(N_df %>% group_by(year) %>% summarise(sum_N = sum(N)))+
   geom_line(aes(year, sum_N))+
   expand_limits(y=0)
+ggsave('Figures/evaluation_change_over_speakers.png')
 
 ################################################################################
 ##3. THE SYNTHETIC (OBSERVED) POPULATION, 2001-2021#############################
@@ -107,6 +111,7 @@ ggplot(N_n_df)+
   geom_line(aes(age, Value, group= Counts, color = Counts))+
   facet_wrap(~year)+
   coord_flip()
+ggsave('Figures/evaluation_true_vs_synthetic_counts.png')
 
 ################################################################################
 #4 BACKCAST#####################################################################
@@ -156,6 +161,8 @@ ggplot(n76_N %>% filter(year==1991) %>% mutate(census = factor(census)))+
   geom_smooth(aes(age, n))+
   geom_line(aes(age, N), linewidth = 2)+
   ggtitle("Black line is real pop, colored ones are the model applied to the data in each year, blue is their average")
+
+ggsave('Figures/evaluation_backcast.png')
 
 ################################################################################
 #5. INTERGENERATIONAL TRANSMISSION###############################################
@@ -251,6 +258,8 @@ ggplot(it_df_real)+
   geom_line(aes(year, real_it), color = 'red')+
   ggtitle("Red line is real it, grey ones are the estimates, blue their average")
 
+ggsave('Figures/evaluation_it_df_real.png')
+
 ################################################################################
 #6. PROJECTION##################################################################
 ################################################################################
@@ -340,6 +349,9 @@ ggplot(comparison)+
   scale_x_continuous(breaks=seq(2001, 2101, 20))+
   ggtitle("Solid line is real pop size, shaded area the model's 90% CI")
 
+ggsave('Figures/evaluation_predicted_vs_actual.png')
+
+
 #populations by age in selected years
 pop_byage <- proj_results %>% 
   filter(year %in% seq(2001, 2101, 20)) %>% 
@@ -354,3 +366,7 @@ ggplot(pop_byage)+
   facet_wrap(~year)+
   coord_flip()+
   ggtitle("Dots are real pop values, shaded area the model's 90% CI")
+
+ggsave('Figures/evaluation_population_pyramids.png')
+
+saveRDS(proj_results, 'projection')

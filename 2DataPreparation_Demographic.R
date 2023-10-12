@@ -30,12 +30,13 @@ lt1 <- read.csv(unz(temp, "WPP2022_Life_Table_Abridged_Medium_1950-2021.csv"))
 download.file("https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/CSV_FILES/WPP2022_Life_Table_Abridged_Medium_2022-2100.zip", temp)
 lt2 <- read.csv(unz(temp, "WPP2022_Life_Table_Abridged_Medium_2022-2100.csv"))
 
-#Remove the remporary file
+#Remove the temporary file
 unlink(temp)
 
 #combine lt1 and lt2, remove
 lt <- bind_rows(lt1, lt2)
 remove(lt1, lt2)
+gc()  # free memory
 
 ################################################################################
 #2. SELECT APPROPRIATE SCHEDULES AND ARRANGE IT INTO MATRICES###################
