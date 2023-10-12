@@ -42,19 +42,24 @@ gc()  # free memory
 #2. SELECT APPROPRIATE SCHEDULES AND ARRANGE IT INTO MATRICES###################
 ################################################################################
 #vector of candidate schedules
-candidates <- c("Less developed regions",
-                "Small Island Developing States (SIDS)", "Middle-income countries", 
+candidates <- c("Less developed regions", "World",
+                "Middle-income countries", 
                 "Upper-middle-income countries", "Lower-middle-income countries", "No income group available")
 
 #visualize possibilities for fertility schedules
 ggplot(ft %>% 
-         filter(Time %in% seq(1971, 2101, 5), Location %in% candidates, Variant == "Medium") %>% 
+         filter(Time %in% seq(1976, 2006, 5), Location %in% candidates, Variant == "Medium") %>% 
          group_by(Location, Time) %>%
          summarise(tfr = sum(ASFR)/200))+
   geom_line(aes(Time, tfr, color = Location, group = Location), linewidth = 2)+
   scale_color_brewer(palette = "Set2")+
-  scale_x_continuous(breaks = seq(1971, 2101, 20))+
+  scale_x_continuous(breaks = seq(1976, 2006, 10))+
   theme_bw()
+
+ft %>% 
+  filter((Time==2011 | Time==2096), Location %in% candidates, Variant == "Medium") %>% 
+  group_by(Location, Time) %>%
+  summarise(tfr = sum(ASFR)/200)
 
 #visualize possibilities for mortality schedules
 ggplot(lt %>% 
@@ -64,9 +69,13 @@ ggplot(lt %>%
   scale_x_continuous(breaks = seq(1971, 2101, 20))+
   theme_bw()
 
+lt %>% 
+  filter((Time==2006 | Time==2096), Location %in% candidates, AgeGrpStart==0, Variant =="Medium", Sex =="Total") %>%
+  select(Location, ex)
+
 #visualize possibilities for mortality under 1
 ggplot(lt %>% 
-         filter(Time %in% seq(1971, 2101, 5), Location %in% candidates, AgeGrpStart==0, Variant =="Medium", Sex =="Total"))+
+         filter(Time %in% seq(1976, 2001, 5), Location %in% candidates, AgeGrpStart==0, Variant =="Medium", Sex =="Total"))+
   geom_line(aes(Time, qx, color = Location, group = Location), linewidth = 2)+
   scale_color_brewer(palette = "Set2")+
   scale_x_continuous(breaks = seq(1971, 2101, 20))+
@@ -114,12 +123,12 @@ for (c in candidates){
     
   #fertility rates
   f1 <- ft %>% 
-    filter(Location==c, Time %in% c(seq(1951, 2096, 5), 2100), AgeGrpStart<=45, Variant=="Medium") %>%
+    filter(Location==c, Time %in% seq(1951, 2096, 5), AgeGrpStart<=45, Variant=="Medium") %>%
     pull(ASFR) %>%
     matrix(nrow=8)
   
   #fill the rest of the fertility matrix with zeros
-  f1 <- rbind(matrix(nrow=2, ncol=31, 0), f1, matrix(nrow=11, ncol=31, 0))/400
+  f1 <- rbind(matrix(nrow=2, ncol=30, 0), f1, matrix(nrow=11, ncol=30, 0))/400
   
   f_list[[which(candidates==c)]] <- f1
 

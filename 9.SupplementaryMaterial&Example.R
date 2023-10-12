@@ -14,11 +14,6 @@ library(ggpubr)
 #set theme
 theme_set(theme_bw())
 
-#read in mortality and fertility matrices
-m1 <- readRDS('DemographicParameters')[[1]]
-m1_0 <- readRDS('DemographicParameters')[[2]]
-f <- readRDS('DemographicParameters')[[5]]
-
 #raw counts, censuses 2001-2021
 sc <- readRDS("scdata") %>% 
   mutate(name_census = paste(name, year)) %>%
@@ -54,7 +49,7 @@ n76_mean <- sapply(names, function(l)
   n76 %>% 
     filter(year==1976, name == l, age<=45) %>%
     group_by(age) %>% 
-    summarise(mean_n = mean(pred)) %>% 
+    summarise(mean_n = mean(n)) %>% 
     pull(mean_n))
 
 ################################################################################
@@ -98,29 +93,25 @@ for (x in c(1, 10, 19)){
   }
 
 #Intergenerational transmission#################################################
-#Actual and counterfactual number of children
-actual_counter <- bind_rows(lapply(names, function(x) 
-  readRDS(paste('IntergenerationalTransmission/', x, '_counts0_4', sep= ''))))
+#Load df with estimates 1981-2001 and projection
+it_df <- bind_rows(lapply(names, function(x) 
+  readRDS(paste('IntergenerationalTransmission/', x, sep= ''))))
 
-#summarise
-act_count_sum <- actual_counter %>%
+#Actual and counterfactual number of children, 1981-2001
+actual_counter <- it_df %>% 
+  filter(year < 2001) %>%
   pivot_longer(c(actual, counter), names_to = "scenario", values_to = "value") %>%
-  group_by(name, year, scenario) %>%
-  summarise(mean_value = mean(value)) %>%
-  pivot_wider(values_from = mean_value, names_from = scenario) %>%
-  mutate(prop = actual / counter) %>%
-  pivot_longer(c(actual, counter), names_to = "scenario", values_to = "value")
+  group_by(name, year, scenario) %>% 
+  summarise(q2 = quantile(value, .5), lower = quantile(value, .1), upper = quantile(value, .9))
 
 #plot
-ggplot(act_count_sum)+
-  geom_point(aes(year, value, color = scenario, group = scenario))+
+ggplot(actual_counter)+
+  geom_point(aes(year, q2, color = scenario, group = scenario), size = 2)+
+  geom_segment(aes(x = year, xend = year, y = lower, yend = upper, group = scenario), alpha = .3, linewidth = 3)+
   facet_wrap(~name, scales = 'free_y', ncol = 4)+
   expand_limits(min = 0)
 
-#fetch it predictions
-it_df <- bind_rows(lapply(names, function(x) readRDS(paste("IntergenerationalTransmission/", x, sep = ''))))
-
-#find the 80% CI
+#find the 80% CI for the it predictions
 it_df <- it_df %>% 
   group_by(year, name) %>% 
   summarise(q2 = quantile(it, .5), lower = quantile(it, .1), upper = quantile(it, .9))
@@ -134,18 +125,28 @@ it_df <- it_df %>%
                          arrange(-ratio) %>% pull(name)))
 
 #add estimated proportions 1981-2001
-it_df <- left_join(it_df, act_count_sum %>% select(name, year, prop) %>% unique())
-
+it_df <- left_join(it_df, actual_counter %>% 
+                     select(name, year, scenario, q2) %>%
+                     pivot_wider(names_from = scenario, values_from = q2) %>% 
+                     mutate(prop = actual / counter))
+                     
 #show point estimates for the proportions and projected values with 80% CI
 ggplot(it_df)+
   geom_line(aes(year, q2))+
   geom_ribbon(aes(year, ymin = lower, ymax = upper), alpha = .2)+
   geom_point(aes(year, prop))+
   facet_wrap(~name, ncol = 4)+
+  scale_y_continuous(breaks = c(0, .5, 1))+
   scale_x_continuous(breaks = seq(1981, 2101, 20))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
++
+  geom_segment(x = 1981, xend = 2101, y = 0, yend = 0, color = 'blue', alpha = .7)+
+  geom_segment(x = 1981, xend = 2101, y = 1, yend = 1, color = 'blue', alpha = .7)+
+  geom_segment(x = 1981, xend = 1981, y = 0, yend = 1, color = 'blue', alpha = .7)+
+  geom_segment(x = 2101, xend = 2101, y = 0, yend = 1, color = 'blue', alpha = .7)
   
-ggsave("Figures/SM3.tiff", width = 8.3, height = 11.7)
+ggsave("Figures/SM3_100runs_LDRfertility.tiff", width = 8.3, height = 11.7)
 
 #Projection results#############################################################
 #speaker numbers by age and language, years 2001, 2026, 2051, 2076, 2101

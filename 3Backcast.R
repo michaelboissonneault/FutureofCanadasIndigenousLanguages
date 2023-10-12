@@ -31,7 +31,7 @@ names <- sc %>% pull(name) %>% unique()
 raw <- lapply(seq(2001, 2021, 5), function(y) 
   lapply(names, function(x) sc %>% filter(year==y, name==x) %>% pull(pop)))
   
-#Backcast function (until 2001)
+#Backcast function
 backcast_fct <- function(y, x){
     
   #identify population
