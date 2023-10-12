@@ -29,42 +29,40 @@ backcast_df <- readRDS("backcast") %>%
 #vector of names
 names <- backcast_df %>% pull(name) %>% unique()
 
-#load it trajectory data and assign to matrix
-it_m <- lapply(names, function(x) 
+#load it trajectory data, put in matrices, assign to list
+it_l <- lapply(names, function(x) 
   matrix(readRDS(paste('IntergenerationalTransmission/', x, sep = '')) %>% filter(year>=2001) %>% pull(it), nrow = 21))
 
 ################################################################################
 #PROJECTION 2001-2101###########################################################
 ################################################################################
 #matrix of average counts by age, across all censuses, in year 2001, for each language
-mean01_m <- sapply(names, function(l) 
+counts_by_age <- sapply(names, function(l) 
   backcast_df %>% 
     filter(year==2001, name==l, age<=80) %>%
     group_by(age) %>% 
     summarise(mean_n = mean(n)) %>% 
     pull(mean_n))
 
-#population totals by census in 2001
-totalbycensus01 <- backcast_df %>% 
-  filter(year==2001) %>%
-  group_by(name, census) %>% 
-  summarise(sum = sum(n)) 
+#population totals by census (in 2001)
+totals_by_census <- sapply(names, function(l)
+  backcast_df %>% 
+    filter(year==2001, name==l) %>%
+    group_by(census) %>% 
+    summarise(sum = sum(n)) %>%
+    pull(sum))
 
-#standard error of the ratio total / mean of totals  
-se_v <- totalbycensus01 %>%
-  group_by(name) %>%
-  mutate(mean_sum = mean(sum), ratio = sum / mean_sum) %>%
-  group_by(name) %>%
-  summarise(sd_ratio = sd(ratio)) %>%
-  mutate(n = data.frame(name = names, n = 5) %>%
-           left_join(readRDS('excluded') %>% group_by(name) %>% summarise(excl. = n())) %>%
-           mutate(excl. = ifelse(is.na(excl.), 0, excl.), n = n - excl.) %>%
-           pull(n), 
-         se = sd_ratio / sqrt(n)) %>%
-  pull(se)
+#mean of the totals, for each language 
+total_means <- sapply(1:length(names), function(x) mean(totals_by_census[[x]]))
+
+#standard error of the totals, for each language 
+total_ses <- sapply(1:length(names), function(x) sd(totals_by_census[[x]]) / sqrt(length(totals_by_census[[x]])))
+
+#counts by age, standardized for each language
+counts_by_age_st <- sapply(1:length(names), function(x) counts_by_age[ , x] / total_means[x]) 
 
 #specify number of runs
-runs <- 10
+runs <- 1000
 
 #create folder to store results
 dir.create("Results")
@@ -77,14 +75,8 @@ proj_fct <- function(l){
   
   for (r in 1:runs){
     
-    #select standard error of census ratio
-    se <- se_v[l]
-    
-    #estimate starting population
-    p <- round(mean01_m[, l]*rlnorm(1, 0, se)) %>% rpois(17, .) %>%  c(., rep(0, 4)) %>% list()
-    
-    #select it trajectory
-    it <- it_m[[l]][ , r] 
+    #estimate starting population, put in list
+    p <- list(c(rpois(17, rnorm(1, total_means[l], total_ses[l])*counts_by_age_st[ , l]), rep(0, 4)))
     
     #Loop through 2101
     for (i in 1:20){
@@ -93,7 +85,7 @@ proj_fct <- function(l){
       p[[i+1]] <- p[[i]] - rbinom(21, p[[i]], m[, i])
       
       #find the total number of newborns who acquire the language
-      newborns <- sum(rbinom(21, p[[i+1]], f[, i]*it[i]))
+      newborns <- sum(rbinom(21, p[[i+1]], f[, i]*it_l[[l]][i, r]))
       
       #remove the newborns that die between 0 and 2.5
       newborns <- round(newborns - newborns * m0[i])
@@ -119,5 +111,5 @@ proj_fct <- function(l){
   
   }
 
-#run function
+#run function (1,000 runs take about 2-3 minutes)
 lapply(1:length(names), function(x) proj_fct(x))
